@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EAG Read-Ahead Synthesizer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:    #0d1b2a;
+      --panel:   #14253a;
+      --border:  #1e3a55;
+      --accent:  #c5a028;
+      --accent2: #e8c84a;
+      --text:    #dce8f0;
+      --muted:   #7a9ab5;
+      --green:   #2ecc71;
+      --red:     #e74c3c;
+      --radius:  6px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--navy);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: #091523;
+      border-bottom: 2px solid var(--accent);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .star-emblem {
+      width: 40px; height: 40px;
+      background: var(--accent);
+      clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    header p {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+
+    .header-badge {
+      margin-left: auto;
+      background: #1a3a5c;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 4px 10px;
+      border-radius: 3px;
+      text-transform: uppercase;
+    }
+
+    /* ── LAYOUT ── */
+    .app {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      height: calc(100vh - 70px);
+    }
+
+    /* ── LEFT PANEL ── */
+    .left-panel {
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .panel-section {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-section:last-child { border-bottom: none; }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    /* Radio group */
+    .radio-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .radio-group label {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+
+    .radio-group input[type="radio"] { display: none; }
+
+    .radio-group input[type="radio"]:checked + label {
+      background: var(--accent);
+      color: #0d1b2a;
+      border-color: var(--accent);
+    }
+
+    .radio-group label:hover {
+      border-color: var(--accent);
+      color: var(--accent2);
+    }
+
+    /* Form fields */
+    input[type="text"],
+    input[type="date"],
+    textarea,
+    input[type="password"] {
+      width: 100%;
+      background: #0d1b2a;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 9px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      transition: border-color 0.15s;
+      resize: none;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    input::placeholder, textarea::placeholder { color: var(--muted); }
+
+    textarea#packages {
+      height: 180px;
+      line-height: 1.5;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .field-group { display: flex; flex-direction: column; gap: 5px; }
+    .field-label {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+    }
+
+    /* API key section */
+    .api-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .api-toggle span {
+      font-size: 10px;
+      color: var(--muted);
+      text-decoration: underline;
+    }
+
+    .api-key-area { margin-top: 10px; display: none; }
+    .api-key-area.open { display: block; }
+
+    .api-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .api-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .api-dot.live { background: var(--green); }
+    .api-dot.demo { background: var(--accent); }
+
+    /* Buttons */
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 18px 20px;
+    }
+
+    button {
+      padding: 11px;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-transform: uppercase;
+    }
+
+    .btn-demo {
+      background: #1a3a5c;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+
+    .btn-demo:hover { background: #1e4570; }
+
+    .btn-generate {
+      background: var(--accent);
+      color: #0d1b2a;
+    }
+
+    .btn-generate:hover { background: var(--accent2); }
+    .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── RIGHT PANEL ── */
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .output-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 24px;
+      background: #0f1e2e;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .output-toolbar-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .output-toolbar .spacer { flex: 1; }
+
+    .btn-small {
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #1a3a5c;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-small:hover { border-color: var(--accent); color: var(--accent); }
+
+    .output-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px 40px;
+    }
+
+    /* ── PLACEHOLDER ── */
+    .placeholder {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .placeholder-star {
+      width: 60px; height: 60px;
+      background: #1a3a5c;
+      clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+      opacity: 0.3;
+    }
+
+    .placeholder h3 { font-size: 16px; color: #3a6080; font-weight: 600; }
+    .placeholder p { font-size: 13px; max-width: 340px; line-height: 1.6; }
+
+    /* ── READ-AHEAD OUTPUT ── */
+    .readahead {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .ra-header {
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 28px;
+      background: #0f1e2e;
+    }
+
+    .ra-header h2 {
+      font-size: 15px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+    }
+
+    .ra-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .ra-meta-item {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .ra-meta-item strong { color: var(--text); }
+
+    .ra-section {
+      margin-bottom: 24px;
+    }
+
+    .ra-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+    }
+
+    .ra-bluf {
+      background: #0f2a1a;
+      border-left: 3px solid var(--green);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 14px 18px;
+      font-size: 14px;
+      line-height: 1.7;
+      font-weight: 500;
+    }
+
+    .ra-body {
+      font-size: 13px;
+      line-height: 1.75;
+      color: #c0d4e4;
+    }
+
+    .ra-bullets {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .ra-bullets li {
+      display: flex;
+      gap: 10px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #c0d4e4;
+    }
+
+    .ra-bullets li::before {
+      content: '▸';
+      color: var(--accent);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .ra-risks li::before { color: var(--red); content: '⚑'; }
+
+    .ra-org-table {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .ra-org-row {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 12px;
+      font-size: 13px;
+    }
+
+    .ra-org-label {
+      font-weight: 700;
+      color: var(--muted);
+      text-align: right;
+      padding-top: 2px;
+    }
+
+    .ra-org-text { color: #c0d4e4; line-height: 1.6; }
+
+    .ra-questions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .ra-question {
+      display: flex;
+      gap: 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #c0d4e4;
+    }
+
+    .ra-question-num {
+      background: var(--accent);
+      color: #0d1b2a;
+      font-weight: 700;
+      font-size: 11px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .ra-position {
+      background: #0f1e2e;
+      border-left: 3px solid var(--accent);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 14px 18px;
+      font-size: 13px;
+      line-height: 1.75;
+      color: #c0d4e4;
+    }
+
+    .ra-sensitive {
+      background: #2a0f0f;
+      border: 1px solid var(--red);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      font-size: 12px;
+      color: #e57373;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    /* Loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid #0d1b2a;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── PRINT ── */
+    @media print {
+      header, .left-panel, .output-toolbar { display: none !important; }
+      .app { display: block; }
+      .right-panel { overflow: visible; }
+      .output-area { padding: 20px; }
+      body { background: white; color: black; }
+      .ra-header { border-color: #333; background: white; }
+      .ra-header h2, .ra-section-title { color: #333; }
+      .ra-bluf { background: #f0f8f0; border-color: #2ecc71; }
+      .ra-position { background: #f8f8f0; border-color: #c5a028; }
+      .ra-sensitive { border-color: #c00; background: #fff0f0; color: #c00; }
+      .ra-body, .ra-bullets li, .ra-org-text, .ra-question, .ra-question-num + * { color: #222; }
+      .ra-question-num { background: #333; color: white; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="star-emblem"></div>
+  <div>
+    <h1>EAG Read-Ahead Synthesizer</h1>
+    <p>Director, SECAF/CSAF Executive Action Group &nbsp;·&nbsp; For Official Use Only</p>
+  </div>
+  <div class="header-badge">FOUO</div>
+</header>
+
+<div class="app">
+
+  <!-- ── LEFT PANEL ── -->
+  <div class="left-panel">
+
+    <div class="panel-section">
+      <div class="section-label">Principal</div>
+      <div class="radio-group">
+        <input type="radio" name="principal" id="r-secaf" value="SECAF" />
+        <label for="r-secaf">SECAF</label>
+        <input type="radio" name="principal" id="r-csaf" value="CSAF" checked />
+        <label for="r-csaf">CSAF</label>
+        <input type="radio" name="principal" id="r-both" value="Both" />
+        <label for="r-both">Both</label>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-label">Engagement Details</div>
+      <div class="field-row">
+        <div class="field-group">
+          <span class="field-label">Engagement Type</span>
+          <input type="text" id="engagement" placeholder="e.g. Senior Leader Meeting" />
+        </div>
+        <div class="field-group">
+          <span class="field-label">Date</span>
+          <input type="date" id="date" />
+        </div>
+      </div>
+      <div class="field-group">
+        <span class="field-label">Topic / Subject</span>
+        <input type="text" id="topic" placeholder="e.g. UPT Throughput Recovery" />
+      </div>
+    </div>
+
+    <div class="panel-section" style="flex:1;">
+      <div class="section-label">Staff Packages</div>
+      <textarea id="packages" placeholder="Paste staff packages, coordination inputs, memos, bullets, or background documents here.
+
+You can paste multiple documents — separate them with a blank line or label each one."></textarea>
+    </div>
+
+    <div class="btn-row" style="grid-template-columns:1fr;">
+      <button class="btn-generate" onclick="loadDemo()">Load Demo Read-Ahead</button>
+    </div>
+
+  </div>
+
+  <!-- ── RIGHT PANEL ── -->
+  <div class="right-panel">
+
+    <div class="output-toolbar">
+      <span class="output-toolbar-title">Read-Ahead Output</span>
+      <div class="spacer"></div>
+      <button class="btn-small" onclick="copyOutput()">Copy Text</button>
+      <button class="btn-small" onclick="window.print()">Print</button>
+    </div>
+
+    <div class="output-area" id="output-area">
+      <div class="placeholder" id="placeholder">
+        <div class="placeholder-star"></div>
+        <h3>No Read-Ahead Generated</h3>
+        <p>Paste your staff packages on the left and click <strong>Generate</strong>, or click <strong>Load Demo</strong> to see a sample output.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── SYSTEM PROMPT ──────────────────────────────────────────────────────────
+const SYSTEM_PROMPT = `You are the EAG Read-Ahead Synthesizer for the Director, SECAF/CSAF Executive Action Group. Your job is to transform raw staff inputs into a clean, principal-ready read-ahead document following Air Force staff writing conventions.
+
+OUTPUT FORMAT — respond ONLY with valid JSON matching this exact schema. No markdown, no preamble.
+
+{
+  "sensitive": false,
+  "principal": "CSAF",
+  "engagement": "Meeting — Topic Here",
+  "date": "April 2026",
+  "bluf": "One to two sentence BLUF. What must the principal know and do?",
+  "background": "Two to four sentences of essential context only.",
+  "key_issues": ["Issue 1", "Issue 2", "Issue 3"],
+  "org_positions": {
+    "show": true,
+    "agreement": "What orgs agree on.",
+    "disagreement": "What is unresolved and why it matters."
+  },
+  "risks": ["Risk 1", "Risk 2"],
+  "questions": ["Question 1?", "Question 2?", "Question 3?"],
+  "position": "One clear paragraph on what the principal should say, decide, or direct."
+}
+
+RULES:
+- BLUF leads with the decision or key message — not background
+- Total prose fits on one page (~400-500 words)
+- No org gets more than 2-3 sentences
+- All org disagreements are surfaced — not buried
+- Risks are honest, not sanitized
+- Questions are sharp enough a principal would actually ask them
+- No passive voice, no hedging, no filler phrases
+- Set "sensitive" to true if the topic is politically charged or contentious
+- Set org_positions.show to false if only one org input is provided`;
+
+// ── DEMO DATA ──────────────────────────────────────────────────────────────
+const DEMO = {
+  sensitive: false,
+  principal: "SECAF / CSAF",
+  engagement: "Senior Leader Meeting — Pilot Production Shortfall & UPT Throughput Recovery",
+  date: "April 2026",
+  bluf: "Undergraduate Pilot Training throughput remains 14% below FY26 targets due to instructor shortfalls and aging T-6 airframes at three primary bases. The Air Force must decide now whether to accept near-term readiness risk or authorize emergency instructor incentive pay and accelerate the T-7 fielding timeline.",
+  background: "UPT production has missed targets for three consecutive years. HAF A3 and AETC have proposed divergent recovery strategies — one centered on instructor retention incentives, the other on contractor augmentation. SAF/FMB has flagged that both options exceed current POM authority. The issue is schedule-forcing: FY27 POM inputs are due in six weeks.",
+  key_issues: [
+    "AETC projects a 340-pilot shortfall by FY28 if throughput is not recovered within 12 months",
+    "Instructor-to-student ratios at Vance, Columbus, and Laughlin are below safe training thresholds",
+    "SAF/AQ has not confirmed whether T-7A delivery acceleration is contractually executable",
+    "A3 and AETC disagree on whether contractor instructors can be certified in time to affect FY27 numbers",
+    "Congress has visibility — HASC staff asked questions in March; testimony risk is elevated"
+  ],
+  org_positions: {
+    show: true,
+    agreement: "All orgs agree the status quo produces a readiness-degrading pilot gap by FY28.",
+    disagreement: "AETC favors instructor incentive pay as the faster lever; A3 believes contractor augmentation scales better but has not provided a realistic certification timeline; SAF/FMB has not blessed either option — this gap must be resolved before the POM window closes."
+  },
+  risks: [
+    "Authorizing incentive pay without FMB alignment creates an unfunded mandate that will surface publicly during budget testimony",
+    "Contractor instructor path has failed in two prior attempts (FY19, FY22) — proponents have not addressed what is different this time",
+    "If neither option is decided before POM inputs, the Air Force loses a full year of recovery runway"
+  ],
+  questions: [
+    "What specifically failed in the FY19 and FY22 contractor instructor efforts, and has that been fixed?",
+    "What is the minimum incentive pay authority needed to move the needle on instructor retention — and can FMB source it?",
+    "If T-7A delivery accelerates by 18 months, what does that actually buy us in pilot production numbers?",
+    "Who owns the decision if AETC and A3 remain split — and when does it need to be made?"
+  ],
+  position: "Direct A3 and AETC to resolve their disagreement and return with a single, costed recommendation within 10 days. Instruct SAF/FMB to identify reprogramming options in parallel. If no consensus emerges, the Deputy SecAF should adjudicate before POM inputs lock. Do not accept a split package into the POM — the Air Force cannot afford ambiguity on pilot production at this moment."
+};
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let currentOutput = null;
+
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+function render(data) {
+  currentOutput = data;
+  const area = document.getElementById('output-area');
+
+  const dateStr = data.date || document.getElementById('date').value || '—';
+  const orgSection = data.org_positions?.show ? `
+    <div class="ra-section">
+      <div class="ra-section-title">Org Positions &amp; Gaps</div>
+      <div class="ra-org-table">
+        <div class="ra-org-row">
+          <div class="ra-org-label">Agreement</div>
+          <div class="ra-org-text">${esc(data.org_positions.agreement)}</div>
+        </div>
+        <div class="ra-org-row">
+          <div class="ra-org-label">Disagreement / Gap</div>
+          <div class="ra-org-text">${esc(data.org_positions.disagreement)}</div>
+        </div>
+      </div>
+    </div>` : '';
+
+  area.innerHTML = `
+    <div class="readahead">
+      ${data.sensitive ? '<div class="ra-sensitive" style="display:flex;">⚑ SENSITIVE — Recommend Director EAG review before release.</div>' : ''}
+      <div class="ra-header">
+        <h2>Read-Ahead</h2>
+        <div class="ra-meta">
+          <div class="ra-meta-item"><strong>Principal:</strong> ${esc(data.principal)}</div>
+          <div class="ra-meta-item"><strong>Date:</strong> ${esc(dateStr)}</div>
+          <div class="ra-meta-item" style="grid-column:1/-1;"><strong>Engagement:</strong> ${esc(data.engagement)}</div>
+          <div class="ra-meta-item"><strong>Prepared by:</strong> EAG Staff</div>
+        </div>
+      </div>
+
+      <div class="ra-section">
+        <div class="ra-section-title">Bottom Line Up Front (BLUF)</div>
+        <div class="ra-bluf">${esc(data.bluf)}</div>
+      </div>
+
+      <div class="ra-section">
+        <div class="ra-section-title">Background</div>
+        <div class="ra-body">${esc(data.background)}</div>
+      </div>
+
+      <div class="ra-section">
+        <div class="ra-section-title">Key Issues</div>
+        <ul class="ra-bullets">
+          ${data.key_issues.map(i => `<li>${esc(i)}</li>`).join('')}
+        </ul>
+      </div>
+
+      ${orgSection}
+
+      <div class="ra-section">
+        <div class="ra-section-title">Risks &amp; Flags</div>
+        <ul class="ra-bullets ra-risks">
+          ${data.risks.map(r => `<li>${esc(r)}</li>`).join('')}
+        </ul>
+      </div>
+
+      <div class="ra-section">
+        <div class="ra-section-title">Recommended Questions to Ask</div>
+        <div class="ra-questions">
+          ${data.questions.map((q,i) => `
+            <div class="ra-question">
+              <div class="ra-question-num">${i+1}</div>
+              <div>${esc(q)}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="ra-section">
+        <div class="ra-section-title">Recommended Position / Action</div>
+        <div class="ra-position">${esc(data.position)}</div>
+      </div>
+    </div>`;
+}
+
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// ── DEMO ───────────────────────────────────────────────────────────────────
+function loadDemo() {
+  const btn = document.querySelector('.btn-generate');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Synthesizing packages…';
+
+  const steps = [
+    [800,  'Analyzing org inputs…'],
+    [1600, 'Surfacing key issues…'],
+    [2400, 'Drafting recommended position…'],
+    [3000, 'Finalizing read-ahead…'],
+  ];
+
+  steps.forEach(([delay, label]) => {
+    setTimeout(() => { btn.innerHTML = `<span class="spinner"></span>${label}`; }, delay);
+  });
+
+  setTimeout(() => {
+    render(DEMO);
+    btn.disabled = false;
+    btn.textContent = 'Load Demo Read-Ahead';
+  }, 3800);
+}
+
+
+// ── COPY ───────────────────────────────────────────────────────────────────
+function copyOutput() {
+  if (!currentOutput) return;
+  const d = currentOutput;
+  let txt = `READ-AHEAD\nPrincipal: ${d.principal}\nEngagement: ${d.engagement}\nDate: ${d.date || ''}\nPrepared by: EAG Staff\n\n`;
+  txt += `BLUF\n${d.bluf}\n\n`;
+  txt += `BACKGROUND\n${d.background}\n\n`;
+  txt += `KEY ISSUES\n${d.key_issues.map(i=>'• '+i).join('\n')}\n\n`;
+  if (d.org_positions?.show) {
+    txt += `ORG POSITIONS & GAPS\nAgreement: ${d.org_positions.agreement}\nDisagreement/Gap: ${d.org_positions.disagreement}\n\n`;
+  }
+  txt += `RISKS & FLAGS\n${d.risks.map(r=>'• '+r).join('\n')}\n\n`;
+  txt += `RECOMMENDED QUESTIONS\n${d.questions.map((q,i)=>`${i+1}. ${q}`).join('\n')}\n\n`;
+  txt += `RECOMMENDED POSITION / ACTION\n${d.position}`;
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = event.target;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy Text', 1500);
+  });
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+(function init() {
+  // Show placeholder — user clicks button to trigger
+})();
+</script>
+</body>
+</html>
